@@ -172,34 +172,45 @@ func Argon2IDHash(password string) string {
 
 func (u *User) ValidatePassword(password string) error {
 	if strings.HasPrefix(u.PwdHash, "$argon2id$") {
+		// Expected format: $argon2id$v=19$m=65536,t=1,p=4$salt$hash
 		parts := strings.Split(u.PwdHash, "$")
-		if len(parts) != 7 {
-			return errors.New("invalid argon2id hash format")
+		if len(parts) != 6 {
+			return fmt.Errorf("invalid argon2id format, expected 6 parts got %d", len(parts))
 		}
-		
-		// Parse parameters from hash string
+
+		// Parse parameters
 		params := strings.Split(parts[3], ",")
-		var t, m uint32
+		if len(params) != 3 {
+			return errors.New("invalid argon2id parameters format")
+		}
+
+		var m, t uint32
 		var p uint8
-		fmt.Sscanf(params[0], "m=%d", &m)
-		fmt.Sscanf(params[1], "t=%d", &t)
-		fmt.Sscanf(params[2], "p=%d", &p)
-		
+		if _, err := fmt.Sscanf(params[0], "m=%d", &m); err != nil {
+			return fmt.Errorf("failed to parse memory: %v", err)
+		}
+		if _, err := fmt.Sscanf(params[1], "t=%d", &t); err != nil {
+			return fmt.Errorf("failed to parse time: %v", err)
+		}
+		if _, err := fmt.Sscanf(params[2], "p=%d", &p); err != nil {
+			return fmt.Errorf("failed to parse threads: %v", err)
+		}
+
 		salt := parts[4]
 		hash, err := base64.RawStdEncoding.DecodeString(parts[5])
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to decode hash: %v", err)
 		}
-		
-		// Use parameters from hash instead of constants
+
+		// Use same key length as generation (32 bytes)
 		newHash := argon2.IDKey([]byte(password), []byte(salt), t, m, p, argon2KeyLen)
+		
 		if !bytes.Equal(hash, newHash) {
 			return errors.WithStack(errs.WrongPassword)
 		}
 		return nil
-	} else {
-		return u.ValidatePwdStaticHash(StaticHash(password))
 	}
+	return u.ValidatePwdStaticHash(StaticHash(password))
 }
 
 // SetPassword new user use Argon2id
