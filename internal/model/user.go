@@ -3,9 +3,12 @@ package model
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
-	"fmt"
+
 	"github.com/OpenListTeam/OpenList/internal/errs"
 	"github.com/OpenListTeam/OpenList/pkg/utils"
 	"github.com/OpenListTeam/OpenList/pkg/utils/random"
