@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"strings"
 	"time"
-
+	"fmt"
 	"github.com/OpenListTeam/OpenList/internal/errs"
 	"github.com/OpenListTeam/OpenList/pkg/utils"
 	"github.com/OpenListTeam/OpenList/pkg/utils/random"
