@@ -173,15 +173,26 @@ func Argon2IDHash(password string) string {
 func (u *User) ValidatePassword(password string) error {
 	if strings.HasPrefix(u.PwdHash, "$argon2id$") {
 		parts := strings.Split(u.PwdHash, "$")
-		if len(parts) != 6 {
+		if len(parts) != 7 {
 			return errors.New("invalid argon2id hash format")
 		}
+		
+		// Parse parameters from hash string
+		params := strings.Split(parts[3], ",")
+		var t, m uint32
+		var p uint8
+		fmt.Sscanf(params[0], "m=%d", &m)
+		fmt.Sscanf(params[1], "t=%d", &t)
+		fmt.Sscanf(params[2], "p=%d", &p)
+		
 		salt := parts[4]
 		hash, err := base64.RawStdEncoding.DecodeString(parts[5])
 		if err != nil {
 			return err
 		}
-		newHash := argon2.IDKey([]byte(password), []byte(salt), argon2Time, argon2Memory, argon2Threads, argon2KeyLen)
+		
+		// Use parameters from hash instead of constants
+		newHash := argon2.IDKey([]byte(password), []byte(salt), t, m, p, argon2KeyLen)
 		if !bytes.Equal(hash, newHash) {
 			return errors.WithStack(errs.WrongPassword)
 		}
