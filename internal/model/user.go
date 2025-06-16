@@ -1,9 +1,9 @@
 package model
 
 import (
-	"encoding/binary"
-	"encoding/json"
-	"fmt"
+	"bytes"
+	"encoding/base64"
+	"strings"
 	"time"
 
 	"github.com/OpenListTeam/OpenList/internal/errs"
@@ -11,6 +11,7 @@ import (
 	"github.com/OpenListTeam/OpenList/pkg/utils/random"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/argon2"
 )
 
 const (
@@ -74,9 +75,47 @@ func (u *User) ValidatePwdStaticHash(pwdStaticHash string) error {
 	return nil
 }
 
+const (
+	argon2Time    = 1
+	argon2Memory  = 64 * 1024
+	argon2Threads = 4
+	argon2KeyLen  = 32
+)
+
+func Argon2IDHash(password string) string {
+	salt := random.String(16)
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version,
+		argon2Memory,
+		argon2Time,
+		argon2Threads,
+		salt,
+		base64.RawStdEncoding.EncodeToString(argon2.IDKey([]byte(password), []byte(salt), argon2Time, argon2Memory, argon2Threads, argon2KeyLen)))
+}
+
+func (u *User) ValidatePassword(password string) error {
+	if strings.HasPrefix(u.PwdHash, "$argon2id$") {
+		parts := strings.Split(u.PwdHash, "$")
+		if len(parts) != 6 {
+			return errors.New("invalid argon2id hash format")
+		}
+		salt := parts[4]
+		hash, err := base64.RawStdEncoding.DecodeString(parts[5])
+		if err != nil {
+			return err
+		}
+		newHash := argon2.IDKey([]byte(password), []byte(salt), argon2Time, argon2Memory, argon2Threads, argon2KeyLen)
+		if !bytes.Equal(hash, newHash) {
+			return errors.WithStack(errs.WrongPassword)
+		}
+		return nil
+	}
+	return u.ValidatePwdStaticHash(StaticHash(password))
+}
+
 func (u *User) SetPassword(pwd string) *User {
 	u.Salt = random.String(16)
-	u.PwdHash = TwoHashPwd(pwd, u.Salt)
+	u.PwdHash = Argon2IDHash(pwd)
 	u.PwdTS = time.Now().Unix()
 	return u
 }
