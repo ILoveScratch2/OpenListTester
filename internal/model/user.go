@@ -81,12 +81,7 @@ func (u *User) ValidatePwdStaticHash(pwdStaticHash string) error {
 	return nil
 }
 
-func (u *User) SetPassword(pwd string) *User {
-	u.Salt = random.String(16)
-	u.PwdHash = TwoHashPwd(pwd, u.Salt)
-	u.PwdTS = time.Now().Unix()
-	return u
-}
+
 
 func (u *User) CanSeeHides() bool {
 	return u.Permission&1 == 1
